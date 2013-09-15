@@ -227,6 +227,11 @@ class MDNSTextRecord(MDNSResourceRecord):
 
         return _str
 
+class MDNSOutgoingPacket(object):
+    
+    def __init(self):
+        pass
+
 class MDNSIncomingPacket(object):
     
     def __init__(self, packet):
