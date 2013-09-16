@@ -82,27 +82,27 @@ _MINUTES_IN_SEC = 60
 
 class MDNSRecord(object):
 
-    def __init__(self, queryName, queryType, queryClass):
-        self.queryName = queryName
-        self.queryType = queryType
-        self.queryClass = queryClass & _CLASS_MASK
+    def __init__(self, name, type, clazz):
+        self.name = name
+        self.type = type
+        self.clazz = clazz & _CLASS_MASK
 
-    def getQueryName(self):
-        return self.queryName
+    def getName(self):
+        return self.name
     
-    def getQueryType(self):
-        return self.queryType
+    def getType(self):
+        return self.type
     
-    def getQueryClass(self):
-        return self.queryClass
+    def getClass(self):
+        return self.clazz
 
 class MDNSQueryRecord(MDNSRecord):
     
-    def __init__(self, queryName, queryType, queryClass):
-        MDNSRecord.__init__(self, queryName, queryType, queryClass)
+    def __init__(self, name, type, clazz):
+        MDNSRecord.__init__(self, name, type, clazz)
 
     def __repr__(self):
-        return '%s: type %s, class %s\n'%(self.queryName, _TYPES[self.queryType], _CLASSES[self.queryClass])
+        return '%s: type %s, class %s\n'%(self.name, _TYPES[self.type], _CLASSES[self.clazz])
 
 class MDNSResourceRecord(MDNSRecord):
     
@@ -114,7 +114,7 @@ class MDNSResourceRecord(MDNSRecord):
 
     def __repr__(self, level=1):
         _str = ''
-        _str += '%s%s: type %s, class %s\n'%(level*_INDENT, self.queryName, _TYPES[self.queryType], _CLASSES[self.queryClass])
+        _str += '%s%s: type %s, class %s\n'%(level*_INDENT, self.name, _TYPES[self.type], _CLASSES[self.clazz])
         level+= 1
         _str += '%sTime to live: %s\n'%(level*_INDENT, self._ttl())
         _str += '%sData length: %s\n'%(level*_INDENT, self.resourceDataLength)
@@ -213,8 +213,8 @@ class MDNSTextRecord(MDNSResourceRecord):
             property = self.text[index:index+length]
             index += length
             
-            key, value = property.split('=')
-            properties[key] = value 
+            split = property.find('=')
+            properties[property[:split]] = property[split + 1:] 
             
         return properties
 
@@ -229,8 +229,107 @@ class MDNSTextRecord(MDNSResourceRecord):
 
 class MDNSOutgoingPacket(object):
     
-    def __init(self):
-        pass
+    def __init__(self, flags):
+        self.flags = flags
+        self.identification = 0        
+        self.data = []
+
+        self.names = {}
+        self.size = 12
+        
+        self.queries = []
+        self.answers = []
+        self.authorities = []
+        self.additionals = []
+
+    def addQuery(self, query):
+        self.queries.append(query)
+
+    def addAnswer(self, answer):
+        self.answers.append(answer)
+
+    def addAuthority(self, authority):
+        self.authorities.append(authority)
+
+    def addAdditional(self, additional):
+        self.additionals.append(additional)
+
+    def insertShort(self, index, value):
+        format = '!H'
+        self.data.insert(index, struct.pack(format, value))
+        self.size += 2
+
+    def writeQuery(self, query):
+        self.writeName(query.name)
+        self.writeUnsignedShort(query.type)
+        self.writeUnsignedShort(query.clazz)
+
+    def writeRecord(self, record):
+        self.writeName(record.name)
+        self.writeUnsignedShort(record.type)
+        self.writeUnsignedShort(record.clazz)
+        
+    def writeName(self, name):
+        if self.names.has_key(name):
+            index = self.names[names]
+            self.writeByte( (value >> 8) | 0xC0 )
+            self.writeByte(index)            
+        else:
+            self.names[name] = self.size
+            parts = name.split('.')
+            if parts[-1] == '':
+                parts = parts[:-1]
+            for part in parts:
+                self.writeUtf8(part)
+            self.writeByte(0)
+            
+    def writeByte(self, value):
+        format = '!c'
+        self.data.append(struct.pack(format, chr(value)))
+        self.size += 1
+
+    def writeUtf8(self, str):
+        utfstr = str.encode('utf-8')
+        length = len(utfstr)
+        self.writeByte(length)
+        self.writeString(utfstr, length)
+        
+    def writeString(self, string, length):
+        format = '!%ds'%length
+        self.data.append(struct.pack(format, string))
+        self.size += length 
+
+    def writeUnsignedShort(self, value):
+        format = '!H'
+        length = struct.calcsize(format)
+        data = struct.pack(format, value)
+        self.data.append(data)
+        self.size += 2
+
+    def writeInteger(self, value):
+        format = '!i'
+        data = struct.pack(format, value)
+        self.data.append(data)
+        self.size += 4
+
+    def packet(self):
+        for query in self.queries:
+            self.writeQuery(query)
+        for answer in self.answers:
+            self.writeRecord(answer)
+        for authority in self.authorities:
+            self.writeRecord(authority)
+        for additional in self.additionals:
+            self.writeRecord(additional)
+
+        self.insertShort(0, len(self.additionals))
+        self.insertShort(0, len(self.authorities))
+        self.insertShort(0, len(self.answers))
+        self.insertShort(0, len(self.queries))
+        self.insertShort(0, self.flags)
+        self.insertShort(0, self.identification)
+        
+        return ''.join(self.data)
 
 class MDNSIncomingPacket(object):
     
@@ -356,10 +455,10 @@ class MDNSIncomingPacket(object):
     def readAnswers(self):
         for domainName, answerRecord in self.readResourceRecords(self.num_answers):
             if answerRecord[0] == _TYPE_PTR:
-                domainName = self.readName()
+                name = self.readName()
                 self.answerRecords.append(MDNSPointerRecord(domainName, answerRecord[0], 
                                                             answerRecord[1], answerRecord[2], 
-                                                            answerRecord[3], domainName))
+                                                            answerRecord[3], name))
             elif answerRecord[0] == _TYPE_TXT:
                 text = self.readString(answerRecord[3])
                 self.answerRecords.append(MDNSTextRecord(domainName, answerRecord[0],
@@ -386,10 +485,10 @@ class MDNSIncomingPacket(object):
     def readAuthorities(self):
         for domainName, authorityRecord in self.readResourceRecords(self.num_authorities):
             if authorityRecord[0] == _TYPE_PTR:
-                domainName = self.readName()
+                name = self.readName()
                 self.authorityRecords.append(MDNSPointerRecord(domainName, authorityRecord[0], 
                                                                authorityRecord[1], authorityRecord[2], 
-                                                               authorityRecord[3], domainName))
+                                                               authorityRecord[3], name))
             elif authorityRecord[0] == _TYPE_TXT:
                 text = self.readString(answerRecord[3])
                 self.authorityRecords.append(MDNSTextRecord(domainName, authorityRecord[0],
@@ -416,12 +515,12 @@ class MDNSIncomingPacket(object):
     def readAdditionals(self):
         for domainName, additionalRecord in self.readResourceRecords(self.num_additionals):
             if additionalRecord[0] == _TYPE_PTR:
-                domainName = self.readName()
+                name = self.readName()
                 self.additionalRecords.append(MDNSPointerRecord(domainName, additionalRecord[0], 
                                                                 additionalRecord[1], additionalRecord[2], 
-                                                                additionalRecord[3], serviceName))
+                                                                additionalRecord[3], name))
             elif additionalRecord[0] == _TYPE_TXT:
-                text = self.readString(answerRecord[3])
+                text = self.readString(additionalRecord[3])
                 self.additionalRecords.append(MDNSTextRecord(domainName, additionalRecord[0],
                                                              additionalRecord[1], additionalRecord[2], 
                                                              additionalRecord[3], text))
