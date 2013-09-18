@@ -1,21 +1,19 @@
-from bonjour.service_browser import ServiceBrowser
-from bonjour.service_advertiser import ServiceAdvertiser
-from bonjour.service import Service
+from application import Application
 
 from twisted.internet import reactor
 
 if __name__ == '__main__':
-    serviceBrowser = ServiceBrowser()
-    serviceBrowser.addService('_touch-able._tcp_local.')
+    app = Application()
+    app.serviceBrowser.addService('_touch-able._tcp_local')
 
-    serviceAdvertiser = ServiceAdvertiser()
-    service = Service('ABCDEF1234567890._touch-remote._tcp.local.', 51186, 'device.local')
-    service.addText('DvNm', 'device')
-    service.addText('RemV', '10000')
-    service.addText('DvTy', 'iPod Touch')
-    service.addText('RemN', 'Remote')
-    service.addText('Pair', '09CF644AC278442F')
-    service.addText('txtvers', '1')    
-    serviceAdvertiser.addService(service)
+    service = app.createService('ABCDEF1234567892._touch-remote._tcp.local', 51186, 'myNewDevice.local')
+    service.setTtl(0)
+    service.addProperty('DvNm', 'my own device')
+    service.addProperty('RemV', '10000')
+    service.addProperty('DvTy', 'iPod Touch')
+    service.addProperty('RemN', 'Remote')
+    service.addProperty('Pair', '09CF644AC278442F')
+    service.addProperty('txtvers', '1')    
+    app.serviceAdvertiser.addService(service)
 
     reactor.run()

@@ -1,3 +1,5 @@
+import utils
+
 import struct
 import socket
 
@@ -92,6 +94,10 @@ class MDNSRecord(object):
 
     def getName(self):
         return self.name
+
+    def getDomainName(self):
+        index = self.name.find('.')
+        return self.name[index+1:]
     
     def getType(self):
         return self.type
@@ -126,6 +132,8 @@ class MDNSResourceRecord(MDNSRecord):
 
     def _ttl(self):
         _str = ''
+        if self.ttl == 0:
+            return '0 time'
         days, seconds = divmod(self.ttl, _DAYS_IN_SEC)
         hours, seconds = divmod(seconds, _HOURS_IN_SEC)
         minutes, seconds = divmod(seconds, _MINUTES_IN_SEC)
@@ -143,10 +151,15 @@ class MDNSResourceRecord(MDNSRecord):
 
 class MDNSAddressRecord(MDNSResourceRecord):
 
-    def __init__(self, name, recordType, recordClass, ttl, resourceDataLength, address):
+    def __init__(self, name, recordType, recordClass, ttl, address):
+        resourceDataLength = len(address)
         MDNSResourceRecord.__init__(self, name, recordType, recordClass, ttl, resourceDataLength)
 
         self.address = address
+
+    def write(self, out):
+        address = socket.inet_aton(self.address)
+        out.writeString(address, len(address))
         
     def __repr__(self, level=1):
         _str = ''
@@ -193,10 +206,14 @@ class MDNSServiceRecord(MDNSResourceRecord):
 
 class MDNSPointerRecord(MDNSResourceRecord):
     
-    def __init__(self, name, recordType, recordClass, ttl, resourceDataLength, service):
+    def __init__(self, name, recordType, recordClass, ttl, service):
+        resourceDataLength = len(service)
         MDNSResourceRecord.__init__(self, name, recordType, recordClass, ttl, resourceDataLength)
         
         self.service = service
+
+    def write(self, out):
+        out.writeName(self.service)
 
     def __repr__(self, level=1):
         _str = ''
@@ -214,30 +231,12 @@ class MDNSTextRecord(MDNSResourceRecord):
 
         self.text = text
         try:
-            self.properties = self._textToProperties()
+            self.properties = utils.textToProperties(self.text)
         except:
-            self.properties = properties
+            self.properties = {}
 
     def write(self, out):
-        out.write_string(self.text, len(self.text))
-
-    def _propertiesToText(self):
-        pass
-
-    def _textToProperties(self):
-        properties = {}
-        index = 0
-        end = len(self.text)
-        while index < end:
-            length = ord(self.text[index])
-            index += 1
-            property = self.text[index:index+length]
-            index += length
-            
-            split = property.find('=')
-            properties[property[:split]] = property[split + 1:] 
-            
-        return properties
+        out.writeString(self.text, len(self.text))
 
     def __repr__(self, level=1):
         _str = ''
@@ -486,7 +485,7 @@ class MDNSIncomingPacket(object):
                 name = self.readName()
                 self.answerRecords.append(MDNSPointerRecord(domainName, answerRecord[0], 
                                                             answerRecord[1], answerRecord[2], 
-                                                            answerRecord[3], name))
+                                                            name))
             elif answerRecord[0] == _TYPE_TXT:
                 text = self.readString(answerRecord[3])
                 self.answerRecords.append(MDNSTextRecord(domainName, answerRecord[0],
@@ -505,7 +504,7 @@ class MDNSIncomingPacket(object):
                 address = self.readString(4)
                 self.answerRecords.append(MDNSAddressRecord(domainName, answerRecord[0],
                                                             answerRecord[1], answerRecord[2], 
-                                                            answerRecord[3], address))
+                                                            address))
             else:
                 # ignore other types
                 pass
@@ -516,7 +515,7 @@ class MDNSIncomingPacket(object):
                 name = self.readName()
                 self.authorityRecords.append(MDNSPointerRecord(domainName, authorityRecord[0], 
                                                                authorityRecord[1], authorityRecord[2], 
-                                                               authorityRecord[3], name))
+                                                               name))
             elif authorityRecord[0] == _TYPE_TXT:
                 text = self.readString(answerRecord[3])
                 self.authorityRecords.append(MDNSTextRecord(domainName, authorityRecord[0],
@@ -535,7 +534,7 @@ class MDNSIncomingPacket(object):
                 address = self.readString(4)
                 self.authorityRecords.append(MDNSAddressRecord(domainName, authorityRecord[0],
                                                                authorityRecord[1], authorityRecord[2], 
-                                                               authorityRecord[3], address))
+                                                               address))
             else:
                 # ignore other types
                 pass
@@ -546,7 +545,7 @@ class MDNSIncomingPacket(object):
                 name = self.readName()
                 self.additionalRecords.append(MDNSPointerRecord(domainName, additionalRecord[0], 
                                                                 additionalRecord[1], additionalRecord[2], 
-                                                                additionalRecord[3], name))
+                                                                name))
             elif additionalRecord[0] == _TYPE_TXT:
                 text = self.readString(additionalRecord[3])
                 self.additionalRecords.append(MDNSTextRecord(domainName, additionalRecord[0],
@@ -565,7 +564,7 @@ class MDNSIncomingPacket(object):
                 address = self.readString(4)
                 self.additionalRecords.append(MDNSAddressRecord(domainName, additionalRecord[0],
                                                                 additionalRecord[1], additionalRecord[2], 
-                                                                additionalRecord[3], address))
+                                                                address))
             else:
                 # ignore other types
                 pass
@@ -609,7 +608,7 @@ class MDNSIncomingPacket(object):
         else:
             self.offset = offset
             
-        return name
+        return name[:-1]
 
     def readInteger(self):
         format = '!i'

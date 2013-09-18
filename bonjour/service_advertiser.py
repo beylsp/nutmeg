@@ -1,10 +1,10 @@
-from mdns import MDNSOutgoingPacket, MDNSServiceRecord, MDNSTextRecord
-from mdns import _FLAGS_QR_RESP, _CLASS_IN, _TYPE_SRV, _TYPE_TXT
+import utils
+from mdns import MDNSOutgoingPacket, MDNSServiceRecord, MDNSTextRecord, MDNSPointerRecord, MDNSAddressRecord
+from mdns import _FLAGS_QR_RESP, _CLASS_IN, _TYPE_SRV, _TYPE_TXT, _TYPE_PTR, _TYPE_A
 from mdns import MDNSIncomingPacket
-from service_discovery import ServiceDiscovery
-from bonjour import MDNS_MULTICAST_PORT
 
 from twisted.internet import reactor
+from twisted.internet.task import LoopingCall
 from twisted.python import log
 
 import sys
@@ -12,12 +12,12 @@ log.startLogging(sys.stdout)
 
 class ServiceAdvertiser(object):
     
-    def __init__(self):
+    def __init__(self, zeroconf):
         self.services = []
-        self.advertiser = ServiceDiscovery()
-        self.advertiser.callback = self.update
-        reactor.listenMulticast(MDNS_MULTICAST_PORT, self.advertiser, listenMultiple=True)
+        self.advertiser = zeroconf
+        self.loopadvert = LoopingCall(self.advertise)
         reactor.callWhenRunning(self.advertise)
+        self.loopadvert.start(2, False)
 
     def addService(self, service):
         if not self.services.__contains__(service):
@@ -30,15 +30,17 @@ class ServiceAdvertiser(object):
     def advertise(self):
         mdnsOut = MDNSOutgoingPacket(_FLAGS_QR_RESP)
         for service in self.services:
+            mdnsOut.addAnswer(MDNSAddressRecord(service.getTarget(), _TYPE_A, _CLASS_IN,
+                                                service.getTtl(), '192.168.1.2'))
+            mdnsOut.addAnswer(MDNSPointerRecord(service.getDomainName(), _TYPE_PTR, _CLASS_IN,
+                                                service.getTtl(), service.getName()))
             mdnsOut.addAnswer(MDNSServiceRecord(service.getName(), _TYPE_SRV, _CLASS_IN,
                                                 service.getTtl(), service.getPriority(),
                                                 service.getWeight(), service.getPort(),
                                                 service.getTarget()))
-            if len(service.text) > 0:
+            if len(service.properties) > 0:
                 mdnsOut.addAnswer(MDNSTextRecord(service.getName(), _TYPE_TXT, _CLASS_IN,
-                                                 service.getTtl(), service.getText()))
+                                                 service.getTtl(), 
+                                                 utils.propertiesToText(service.getProperties())))
         
         self.advertiser.sendDatagram(mdnsOut.packet())
-
-    def update(self, datagram):
-        pass

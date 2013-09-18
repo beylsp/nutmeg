@@ -4,7 +4,7 @@ from mdns import MDNSIncomingPacket
 from twisted.internet.protocol import DatagramProtocol
 from twisted.python import log
 
-class ServiceDiscovery(DatagramProtocol):
+class ZeroConfig(DatagramProtocol):
 
     def startProtocol(self):
         self.transport.joinGroup(MDNS_MULTICAST_ADDR)
@@ -15,7 +15,7 @@ class ServiceDiscovery(DatagramProtocol):
         log.msg(mdnsIn)
         
         if self.callback:
-            self.callback(datagram)
+            self.callback(mdnsIn)
 
     def sendDatagram(self, datagram):
         address = (MDNS_MULTICAST_ADDR, MDNS_MULTICAST_PORT)
