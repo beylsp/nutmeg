@@ -37,30 +37,3 @@ class Application(object):
         
         return self.service
 
-class RemoteTunes(Application):
-    
-    def __init__(self, name='ABCDEF1234567890'):
-        Application.__init__(self)
-        
-        self.serviceName = '%s._touch-remote._tcp.local'%name
-        self.port = 6679
-        self.target = socket.gethostname()
-        self.ttl
-
-
-    def start(self):        
-        self.remote = self.createService() 
-
-
-
-        self.serviceName = 
-        self.ttl = 120
-        self.priority = 0
-        self.weight = 0
-        self.port = 0
-        self.target = ''
-        self.properties = {}
-        self.guid = ''
-        
-        
-        self.itunes = Service()
