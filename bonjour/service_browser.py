@@ -5,10 +5,6 @@ from mdns import _TYPE_SRV, _TYPE_TXT
 
 from twisted.internet import reactor
 from twisted.internet.task import LoopingCall
-from twisted.python import log
-
-import sys
-log.startLogging(sys.stdout)
 
 class ServiceBrowser(object):
     
@@ -18,7 +14,7 @@ class ServiceBrowser(object):
         self.discoverer.callback = self.update
         self.loopbrowse = LoopingCall(self.browse)
         reactor.callWhenRunning(self.browse)
-        self.loopbrowse.start(2, False)
+        self.loopbrowse.start(120, False)
         
     def addService(self, service):
         if not self.services.__contains__(service):

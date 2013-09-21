@@ -5,10 +5,6 @@ from mdns import MDNSIncomingPacket
 
 from twisted.internet import reactor
 from twisted.internet.task import LoopingCall
-from twisted.python import log
-
-import sys
-log.startLogging(sys.stdout)
 
 class ServiceAdvertiser(object):
     
@@ -17,7 +13,7 @@ class ServiceAdvertiser(object):
         self.advertiser = zeroconf
         self.loopadvert = LoopingCall(self.advertise)
         reactor.callWhenRunning(self.advertise)
-        self.loopadvert.start(2, False)
+        self.loopadvert.start(120, False)
 
     def addService(self, service):
         if not self.services.__contains__(service):

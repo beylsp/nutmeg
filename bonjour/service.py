@@ -1,36 +1,27 @@
 class Service(object):
     
-    def __init__(self, name, port, target):
-        self.name = name
-        self.ttl = 120
-        self.priority = 0
-        self.weight = 0
-        self.port = port
-        self.target = target
-        self.properties = {}
-
     def setName(self, name):
         self.name = name
-
+        
     def getName(self):
         return self.name
 
     def getDomainName(self):
         index = self.name.find('.')
         return self.name[index+1:]
-        
+    
     def setPort(self, port):
         self.port = port
-
+        
     def getPort(self):
         return self.port
-        
+
     def setTarget(self, target):
         self.target = target
-
+        
     def getTarget(self):
         return self.target
-
+        
     def setTtl(self, ttl):
         self.ttl = ttl
 
@@ -54,3 +45,6 @@ class Service(object):
 
     def getProperties(self):
         return self.properties
+
+    def getProperty(self, property):
+        return self.properties[property]
