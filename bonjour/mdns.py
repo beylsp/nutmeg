@@ -566,10 +566,9 @@ class MDNSIncomingPacket(object):
                                                                 additionalRecord[1], additionalRecord[2], 
                                                                 address))
             else:
-                # ignore other types
-                pass
+                self.offset += additionalRecord[3]
 
-    def readResourceRecords(self, records):
+    def readResourceRecords(self, records):        
         format = '!HHiH'
         length = struct.calcsize(format)
         for i in range(records):
@@ -580,7 +579,6 @@ class MDNSIncomingPacket(object):
             yield domainName, resourceRecord
                     
     def readName(self):
-        compression = False
         next = -1
         offset = self.offset
         name = ''
@@ -596,9 +594,8 @@ class MDNSIncomingPacket(object):
                 name = ''.join( (name, self.packet[offset:offset+length] + '.') )
                 offset += length
             elif c == 0xC0:
-                # compression scheme
-                compression = True
-                next = offset + 1
+                if next < 0:                    
+                    next = offset + 1
                 offset = (length & 0x3F) << 8 | ord(self.packet[offset])
             else:
                 raise Exception('Bad name at position: %d'%offset)
@@ -607,7 +604,7 @@ class MDNSIncomingPacket(object):
             self.offset = next
         else:
             self.offset = offset
-            
+
         return name[:-1]
 
     def readInteger(self):
@@ -633,3 +630,7 @@ class MDNSIncomingPacket(object):
         self.offset += length
 
         return data[0]
+
+if __name__ == '__main__':
+    msg = '0000840000000001000000050b5f746f7563682d61626c65045f746370056c6f63616c00000c00010000119400131041393230343439343231443033424234c00c0773656272696e67c01d00018001000000780004c0a80103c02e0010800100001194007f09747874766572733d310a526d53563d363535333615446249643d413932303434393432314430334242370c4f5373693d307831323537331b43746c4e3d4269626c696f746865656b2076616e2070617472696b09447653763d323831370b447654793d6954756e65730969563d3139363631370a5665723d313331303735c02e00218001000000780008000000000e69c041c041002f8001000000780005c041000140c02e002f8001000011940009c02e00050000800040'
+    print MDNSIncomingPacket(msg)

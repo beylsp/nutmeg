@@ -27,7 +27,7 @@ class ServiceAdvertiser(object):
         mdnsOut = MDNSOutgoingPacket(_FLAGS_QR_RESP)
         for service in self.services:
             mdnsOut.addAnswer(MDNSAddressRecord(service.getTarget(), _TYPE_A, _CLASS_IN,
-                                                service.getTtl(), '192.168.1.2'))
+                                                service.getTtl(), '192.168.1.3'))
             mdnsOut.addAnswer(MDNSPointerRecord(service.getDomainName(), _TYPE_PTR, _CLASS_IN,
                                                 service.getTtl(), service.getName()))
             mdnsOut.addAnswer(MDNSServiceRecord(service.getName(), _TYPE_SRV, _CLASS_IN,

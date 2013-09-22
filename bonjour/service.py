@@ -1,4 +1,6 @@
 class Service(object):
+
+    properties = {}
     
     def setName(self, name):
         self.name = name

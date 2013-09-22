@@ -1,15 +1,9 @@
 from bonjour.zeroconfig import ZeroConfig
 from bonjour.service_browser import ServiceBrowser
 from bonjour.service_advertiser import ServiceAdvertiser
-from bonjour.service import Service
 from bonjour import MDNS_MULTICAST_PORT
 
-from http import web_service
-
 from twisted.internet import reactor
-from twisted.web.server import Site
-
-import socket
 
 from twisted.python import log
 import sys
@@ -24,9 +18,6 @@ class Application(object):
 
     def start(self):
         reactor.listenMulticast(MDNS_MULTICAST_PORT, self.zeroconf, listenMultiple=True)
-
-        site = Site(web_service.getRoot(self.service))
-        reactor.listenTCP(port, site)
 
         reactor.run()
 
