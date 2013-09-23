@@ -110,6 +110,12 @@ class MDNSQueryRecord(MDNSRecord):
     def __init__(self, name, type, clazz):
         MDNSRecord.__init__(self, name, type, clazz)
 
+    def isAnsweredBy(self, record):
+        if record.getName() == self.getName():
+            return True
+        else:
+            return False
+
     def __repr__(self):
         return '%s: type %s, class %s\n'%(self.name, _TYPES[self.type], _CLASSES[self.clazz])
 
@@ -157,6 +163,9 @@ class MDNSAddressRecord(MDNSResourceRecord):
 
         self.address = address
 
+    def getAddress(self):
+        return self._address()
+
     def write(self, out):
         address = socket.inet_aton(self.address)
         out.writeString(address, len(address))
@@ -185,6 +194,18 @@ class MDNSServiceRecord(MDNSResourceRecord):
         self.port = port
         self.target = target
 
+    def getPriority(self):
+        return self.priority
+
+    def getWeight(self):
+        return self.weight
+
+    def getPort(self):
+        return self.port
+
+    def getTarget(self):
+        return self.target
+
     def write(self, out):
         out.writeUnsignedShort(self.priority)
         out.writeUnsignedShort(self.weight)
@@ -211,6 +232,9 @@ class MDNSPointerRecord(MDNSResourceRecord):
         MDNSResourceRecord.__init__(self, name, recordType, recordClass, ttl, resourceDataLength)
         
         self.service = service
+
+    def getService(self):
+        return self.service
 
     def write(self, out):
         out.writeName(self.service)
@@ -455,6 +479,12 @@ class MDNSIncomingPacket(object):
             return True
         else:
             return False
+
+    def isResponse(self):
+        if self.isQuery():
+            return False
+        else:
+            return True
 
     def readHeader(self):
         format = '!HHHHHH'

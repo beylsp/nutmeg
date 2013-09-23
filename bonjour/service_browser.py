@@ -9,9 +9,6 @@ from twisted.internet.task import LoopingCall
 
 class ServiceBrowser(object):
     
-    _STATE_SRV = 0
-    _STATE_TXT = 0
-    
     def __init__(self, zeroconf):        
         self.service = ''
         self.discoverer = zeroconf
@@ -26,24 +23,15 @@ class ServiceBrowser(object):
         return self.defer
             
     def browse(self):
+        self.query = MDNSQueryRecord(self.service, _TYPE_PTR, _CLASS_IN)
         mdnsOut = MDNSOutgoingPacket(_FLAGS_QR_QUERY)
-        mdnsOut.addQuery(MDNSQueryRecord(self.service, _TYPE_PTR, _CLASS_IN))
+        mdnsOut.addQuery(self.query)
         
         self.discoverer.sendDatagram(mdnsOut.packet())
 
     def update(self, packet):
-        if not packet.isQuery():
+        if packet.isResponse():            
             for answer in packet.answerRecords:
-                if answer.getType() == _TYPE_SRV and (answer.getDomainName() == self.service):
-                    self._STATE_SRV = 1
-                if answer.getType() == _TYPE_TXT and (answer.getDomainName() == self.service):
-                    self._STATE_TXT = 1
-            for answer in packet.additionalRecords:
-                if answer.getType() == _TYPE_SRV and (answer.getDomainName() == self.service):
-                    self._STATE_SRV = 1
-                if answer.getType() == _TYPE_TXT and (answer.getDomainName() == self.service):
-                    self._STATE_TXT = 1
-
-        if self._STATE_SRV and self._STATE_TXT and self.defer is not None:
-            d, self.defer = self.defer, None
-            d.callback(packet)
+                if self.query.isAnsweredBy(answer) and self.defer is not None:
+                    d, self.defer = self.defer, None
+                    d.callback( (answer.getService(), packet) )
