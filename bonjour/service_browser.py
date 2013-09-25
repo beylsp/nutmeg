@@ -34,4 +34,4 @@ class ServiceBrowser(object):
             for answer in packet.answerRecords:
                 if self.query.isAnsweredBy(answer) and self.defer is not None:
                     d, self.defer = self.defer, None
-                    d.callback( (answer.getService(), packet) )
+                    d.callback(packet)
